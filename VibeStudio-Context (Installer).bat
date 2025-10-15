@@ -62,35 +62,13 @@ if exist "VibeStudio" (
     echo.
 )
 
-REM Clone the repository
-echo [STEP] Cloning VibeStudio Context repository...
-echo.
-git clone https://github.com/DavidMGDDev/VibeStudio-Context.git VibeStudio
-if errorlevel 1 (
-    echo.
-    echo [ERROR] Failed to clone repository!
-    echo Please check your internet connection and try again.
-    pause
-    exit /b 1
-)
-echo.
-echo [SUCCESS] Repository cloned successfully.
-
-REM Delete the installer from the cloned repo folder if it exists (safe, no error if not present)
-del "VibeStudio\VibeStudio-Context (Installer).bat" 2>nul
-
-REM Remove .git folder to clean up
-if exist "VibeStudio\.git" (
-    rmdir /s /q "VibeStudio\.git" 2>nul
-)
-
-REM Ask for project type
+REM Ask for project type BEFORE cloning
 :ASK_PROJECT_TYPE
 echo ===============================================================
 echo           SELECT YOUR PROJECT TYPE
 echo ===============================================================
 echo.
-echo Please choose your project type:
+echo Please choose your project type (this will download the appropriate tools):
 echo.
 echo   [1] Web Project (HTML, CSS, JS, TS, etc.)
 echo   [2] Godot Game Engine (GD, TSCN)
@@ -114,7 +92,7 @@ set SELECTED_BAT=Z - Extract Context (WEB).bat
 set DELETE_BAT1=Z - Extract Context (GD).bat
 set DELETE_BAT2=Z - Extract Context (Other).bat
 set EXTENSIONS=
-goto PROCESS_INSTALLATION
+goto CLONE_REPO
 
 :GODOT_PROJECT
 echo.
@@ -123,7 +101,7 @@ set SELECTED_BAT=Z - Extract Context (GD).bat
 set DELETE_BAT1=Z - Extract Context (WEB).bat
 set DELETE_BAT2=Z - Extract Context (Other).bat
 set EXTENSIONS=
-goto PROCESS_INSTALLATION
+goto CLONE_REPO
 
 :OTHER_PROJECT
 echo.
@@ -132,7 +110,7 @@ set SELECTED_BAT=Z - Extract Context (Other).bat
 set DELETE_BAT1=Z - Extract Context (WEB).bat
 set DELETE_BAT2=Z - Extract Context (GD).bat
 
-REM Collect custom extensions
+REM Collect custom extensions BEFORE cloning
 echo.
 echo ---------------------------------------------------------------
 echo           CUSTOM FILE EXTENSIONS
@@ -160,7 +138,7 @@ if /i "!EXT!"=="done" (
         echo.
         goto EXTENSION_LOOP
     )
-    goto PROCESS_INSTALLATION
+    goto CLONE_REPO
 )
 
 REM Validate extension
@@ -185,6 +163,29 @@ if "!EXTENSIONS!"=="" (
 set /a COUNT+=1
 echo [ADDED] !EXT!
 goto EXTENSION_LOOP
+
+:CLONE_REPO
+echo.
+echo [STEP] Cloning VibeStudio Context repository based on your selection...
+echo.
+git clone https://github.com/DavidMGDev/VibeStudio-Context.git VibeStudio
+if errorlevel 1 (
+    echo.
+    echo [ERROR] Failed to clone repository!
+    echo Please check your internet connection and try again.
+    pause
+    exit /b 1
+)
+echo.
+echo [SUCCESS] Repository cloned successfully.
+
+REM Delete the installer from the cloned repo folder if it exists (safe, no error if not present)
+del "VibeStudio\VibeStudio-Context (Installer).bat" 2>nul
+
+REM Remove .git folder to clean up
+if exist "VibeStudio\.git" (
+    rmdir /s /q "VibeStudio\.git" 2>nul
+)
 
 :PROCESS_INSTALLATION
 echo.
