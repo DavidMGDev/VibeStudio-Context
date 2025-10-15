@@ -1,10 +1,9 @@
 @echo off
-REM Code Textify - Godot Project Mode
-REM This script extracts Godot game engine files
+REM Z - Extract Context - Godot Project Mode
 REM Place this file in the project root directory
 
 echo ===============================================================
-echo           CODE TEXTIFY - GODOT PROJECT MODE
+echo           Z - EXTRACT CONTEXT - GODOT PROJECT MODE
 echo ===============================================================
 echo.
 echo This tool will extract and merge Godot engine files into
@@ -16,7 +15,7 @@ echo   - Godot Scene files (.tscn)
 echo.
 
 REM Set the script path relative to project root
-set SCRIPT_PATH=VSC-PLUS\CodeTextify.py
+set SCRIPT_PATH=VibeStudio\CodeTextify.py
 
 REM Check if Python is available
 python --version >nul 2>&1
@@ -30,7 +29,7 @@ if errorlevel 1 (
 REM Check if the Python script exists
 if not exist "%SCRIPT_PATH%" (
     echo ERROR: Python script '%SCRIPT_PATH%' not found
-    echo Please make sure the script is located at VSC-PLUS/CodeTextify.py
+    echo Please make sure the script is located at VibeStudio/CodeTextify.py
     echo and this batch file is in the project root
     pause
     exit /b 1
