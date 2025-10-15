@@ -1,0 +1,60 @@
+@echo off
+REM Code Textify - Godot Project Mode
+REM This script extracts Godot game engine files
+REM Place this file in the project root directory
+
+echo ===============================================================
+echo           CODE TEXTIFY - GODOT PROJECT MODE
+echo ===============================================================
+echo.
+echo This tool will extract and merge Godot engine files into
+echo consolidated text files.
+echo.
+echo File types included:
+echo   - GDScript files (.gd)
+echo   - Godot Scene files (.tscn)
+echo.
+
+REM Set the script path relative to project root
+set SCRIPT_PATH=VSC-PLUS\CodeTextify.py
+
+REM Check if Python is available
+python --version >nul 2>&1
+if errorlevel 1 (
+    echo ERROR: Python is not installed or not in PATH
+    echo Please install Python from https://python.org
+    pause
+    exit /b 1
+)
+
+REM Check if the Python script exists
+if not exist "%SCRIPT_PATH%" (
+    echo ERROR: Python script '%SCRIPT_PATH%' not found
+    echo Please make sure the script is located at VSC-PLUS/CodeTextify.py
+    echo and this batch file is in the project root
+    pause
+    exit /b 1
+)
+
+REM Ensure we're in the project root directory (where this batch file is located)
+cd /d "%~dp0"
+
+REM Run the Python script with Godot extensions
+echo Starting Godot File Processor...
+echo Script location: %SCRIPT_PATH%
+echo Working directory: %CD%
+echo.
+python "%SCRIPT_PATH%" .gd .tscn
+
+REM Check if the script ran successfully
+if errorlevel 1 (
+    echo.
+    echo Script execution failed. Check the error messages above.
+    pause
+    exit /b 1
+)
+
+REM Success message
+echo.
+echo Batch file execution completed.
+pause
