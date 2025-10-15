@@ -3,7 +3,7 @@
 CodeTextify.py - Universal Code File Processor
 Processes code files with specified extensions into consolidated text files.
 Designed to work with any codebase (web projects, game engines, etc.)
-Place this file in VSC-PLUS/CodeTextify.py
+Place this file in VibeStudio/CodeTextify.py
 """
 
 import os
@@ -15,11 +15,11 @@ import time
 
 # === CONFIGURATION SECTION ===
 # Paths are relative to project root (where the batch file is located)
-# This script should be placed in VSC-PLUS/CodeTextify.py
+# This script should be placed in VibeStudio/CodeTextify.py
 CONFIG = {
     'source_folder': '.',  # Current directory by default
-    'txts_folder': 'VSC-PLUS/TXTs',
-    'merged_folder': 'VSC-PLUS/Merged',
+    'txts_folder': 'VibeStudio/TXTs',
+    'merged_folder': 'VibeStudio/Merged',
     'max_chars_per_file': 75000,
     'output_filename_prefix': 'MergedFile',
     'file_extensions': []  # Will be set via command line
@@ -87,8 +87,8 @@ def count_code_files(folder_path, extensions):
     count = 0
     try:
         for root, _, files in os.walk(folder_path):
-            # Skip the VSC-PLUS folder itself
-            if 'VSC-PLUS' in root or 'VSC' in root:
+            # Skip the VibeStudio folder itself
+            if 'VibeStudio' in root:
                 continue
             count += len([f for f in files if any(f.endswith(ext) for ext in extensions)])
     except:
@@ -126,8 +126,8 @@ def copy_code_files(source_folder, destination_folder, extensions):
     print(f"  Scanning {source_folder} for files with extensions: {', '.join(extensions)}")
 
     for root, _, files in os.walk(source_folder):
-        # Skip the VSC-PLUS and VSC folders themselves
-        if 'VSC-PLUS' in root or 'VSC' in root:
+        # Skip the VibeStudio folder itself
+        if 'VibeStudio' in root:
             continue
 
         for filename in files:
@@ -162,10 +162,10 @@ def get_file_path(original_name, root_source_folder, all_files_map):
 def merge_text_files(input_folder, output_folder, source_root, extensions):
     """Merge text files into larger consolidated files, with indexes and smart splitting."""
 
-    # Build file map, excluding VSC and VSC-PLUS folders
+    # Build file map, excluding VibeStudio folder
     all_source_files_map = {}
     for root, _, files in os.walk(source_root):
-        if 'VSC-PLUS' in root or 'VSC' in root:
+        if 'VibeStudio' in root:
             continue
         for f in files:
             if any(f.endswith(ext) for ext in extensions):
