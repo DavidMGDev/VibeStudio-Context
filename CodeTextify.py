@@ -12,6 +12,7 @@ import re
 import subprocess
 import sys
 import time
+import json  # FIXED: For metadata mapping
 
 # === CONFIGURATION SECTION ===
 # Paths are relative to project root (where the batch file is located)
@@ -22,13 +23,25 @@ CONFIG = {
     'merged_folder': 'VibeStudio/Merged',
     'max_chars_per_file': 75000,
     'output_filename_prefix': 'MergedFile',
-    'file_extensions': []  # Will be set via command line
+    'file_extensions': [],  # Will be set via command line
+
+    # FIXED: Expanded ignores for Next.js/web (added .next, public)
+    'ignored_folders': {
+        '.git', 'node_modules', '.godot', '__pycache__', 'build', 'dist', 'out', 'bin',
+        'target', '.gradle', '.idea', '.vscode', 'venv', 'env', '.pytest_cache', 'coverage',
+        '.next', 'public'  # Next.js build/static
+    },
+    'ignored_files': {
+        'package-lock.json', 'yarn.lock', 'pnpm-lock.yaml', 'Cargo.lock', 'composer.lock', 'Gemfile.lock',
+        '.env', '.env.local', 'README.md', 'LICENSE', 'CHANGELOG.md',
+        '.gitignore', '.gitattributes', 'tsconfig.json', 'webpack.config.js'
+    }
 }
 
 def print_header():
     """Print application header."""
     print("=" * 60)
-    print("           CODE TEXTIFY v2.0")
+    print("           CODE TEXTIFY v2.1")  # FIXED: Version bump
     print("      Universal Code File to Text Converter")
     print("=" * 60)
     print()
@@ -50,6 +63,27 @@ def wait_for_user(message="Press Enter to continue...", timeout=None):
         print("\n\nOperation cancelled by user.")
         sys.exit(0)
 
+# FIXED: Enhanced walker with better skip logging
+def walk_code_files(folder_path, extensions):
+    """Generator: Yield (root, filename) for files matching extensions, skipping ignores."""
+    ignored_folders = CONFIG['ignored_folders']
+    ignored_files = CONFIG['ignored_files']
+    
+    for root, _, files in os.walk(folder_path):
+        # Skip VibeStudio and ignored folders
+        root_basename = os.path.basename(root).lower()
+        if 'vibestudio' in root_basename or root_basename in ignored_folders:
+            print(f"  → Skipped folder: {os.path.basename(root)} (ignored)")
+            continue
+        
+        for filename in files:
+            filename_lower = filename.lower()
+            if filename_lower in ignored_files:
+                print(f"  → Skipped file: {filename} (ignored file)")
+                continue
+            if any(filename.endswith(ext) for ext in extensions):
+                yield root, filename
+
 def validate_paths():
     """Validate and display the configured paths."""
     print("Configuration:")
@@ -61,6 +95,8 @@ def validate_paths():
     print(f"  TXTs folder:    {txts_path}")
     print(f"  Output folder:  {merged_path}")
     print(f"  File extensions: {', '.join(CONFIG['file_extensions'])}")
+    print(f"  Ignored folders: {len(CONFIG['ignored_folders'])} (e.g., node_modules, .next, .godot)")
+    print(f"  Ignored files:   {len(CONFIG['ignored_files'])} (e.g., package-lock.json)")
     print()
 
     if not os.path.exists(source_path):
@@ -73,8 +109,9 @@ def validate_paths():
         print("Please provide file extensions as command line arguments.")
         return False, None, None, None
 
-    file_count = count_code_files(source_path, CONFIG['file_extensions'])
-    print(f"✓ Source folder found with {file_count} matching files")
+    # FIXED: Count with ignores (no map needed here)
+    file_count = sum(1 for _ in walk_code_files(source_path, CONFIG['file_extensions']))
+    print(f"✓ Source folder found with {file_count} matching files (after ignores)")
 
     if file_count == 0:
         print("WARNING: No files found with the specified extensions!")
@@ -84,16 +121,7 @@ def validate_paths():
 
 def count_code_files(folder_path, extensions):
     """Count the number of files with specified extensions in a folder."""
-    count = 0
-    try:
-        for root, _, files in os.walk(folder_path):
-            # Skip the VibeStudio folder itself
-            if 'VibeStudio' in root:
-                continue
-            count += len([f for f in files if any(f.endswith(ext) for ext in extensions)])
-    except:
-        pass
-    return count
+    return sum(1 for _ in walk_code_files(folder_path, extensions))
 
 def safe_remove_folder(folder_path):
     """Safely remove a folder and its contents."""
@@ -118,66 +146,92 @@ def create_folder(folder_path):
         print(f"  ✗ Error creating {folder_path}: {e}")
         return False
 
+# FIXED: Unique TXT names + metadata JSON to handle duplicates (e.g., multiple page.tsx)
 def copy_code_files(source_folder, destination_folder, extensions):
-    """Copy and rename code files to .txt format."""
+    """Copy and rename code files to unique .txt format using paths."""
     copied_count = 0
     error_count = 0
+    file_map = {}  # FIXED: {unique_key: {'original_filename': fn, 'rel_path': rel_path}}
 
     print(f"  Scanning {source_folder} for files with extensions: {', '.join(extensions)}")
 
-    for root, _, files in os.walk(source_folder):
-        # Skip the VibeStudio folder itself
-        if 'VibeStudio' in root:
-            continue
+    # Sanitization helper
+    def sanitize_rel_path(rel_path):
+        # Replace invalid filename chars + spaces with _, limit length
+        safe = re.sub(r'[\\/:*?"<>| ]+', '_', rel_path)
+        if len(safe) > 200:  # Prevent long path issues
+            safe = safe[:200] + '_truncated'
+        return safe
 
-        for filename in files:
-            if any(filename.endswith(ext) for ext in extensions):
-                source_file = os.path.join(root, filename)
-                dest_file = os.path.join(destination_folder, filename + '.txt')
+    for root, filename in walk_code_files(source_folder, extensions):
+        source_file = os.path.join(root, filename)
+        rel_path = os.path.relpath(source_file, source_folder)
+        safe_rel = sanitize_rel_path(rel_path)  # FIXED: Unique via full rel path
+        unique_key = safe_rel  # FIXED: Key for map (e.g., 'src_app_dashboard_page.tsx')
+        dest_file = os.path.join(destination_folder, unique_key + '.txt')
 
-                try:
-                    shutil.copy2(source_file, dest_file)
-                    copied_count += 1
-                    if copied_count % 10 == 0:  # Progress indicator
-                        print(f"    Copied {copied_count} files...")
-                except Exception as e:
-                    print(f"    ✗ Error copying {filename}: {e}")
-                    error_count += 1
+        try:
+            shutil.copy2(source_file, dest_file)
+            copied_count += 1
+            # FIXED: Build map
+            file_map[unique_key] = {
+                'original_filename': filename,
+                'rel_path': rel_path.replace('\\', '/')  # Normalize to / for display
+            }
+            if copied_count % 10 == 0:
+                print(f"    Copied {copied_count} files...")
+            print(f"    ✓ Unique copy: {unique_key}.txt")
+        except Exception as e:
+            print(f"    ✗ Error copying {filename}: {e}")
+            error_count += 1
 
-    print(f"  ✓ Successfully copied {copied_count} files")
+    # FIXED: Save metadata map
+    if file_map:
+        map_path = os.path.join(destination_folder, 'file_map.json')
+        try:
+            with open(map_path, 'w', encoding='utf-8') as f:
+                json.dump(file_map, f, indent=2)
+            print(f"    ✓ Created file_map.json ({len(file_map)} entries)")
+        except Exception as e:
+            print(f"    ✗ Error saving map: {e}")
+
+    print(f"  ✓ Successfully copied {copied_count} unique files")
     if error_count > 0:
         print(f"  ⚠ {error_count} files had errors")
 
     return copied_count > 0
 
-def get_original_filename(filename_with_txt):
-    """Extract original filename before .txt was added."""
-    base_name = os.path.basename(filename_with_txt)
-    return base_name[:-4] if base_name.endswith('.txt') else base_name
+# FIXED: Removed old get_original_filename (now per-file from map)
 
-def get_file_path(original_name, root_source_folder, all_files_map):
-    """Find the relative path of an original file from the pre-built map."""
-    return all_files_map.get(original_name, original_name)
-
+# FIXED: Load map, use per-file info; no more overwrites or path loss
 def merge_text_files(input_folder, output_folder, source_root, extensions):
     """Merge text files into larger consolidated files, with indexes and smart splitting."""
 
-    # Build file map, excluding VibeStudio folder
-    all_source_files_map = {}
-    for root, _, files in os.walk(source_root):
-        if 'VibeStudio' in root:
-            continue
-        for f in files:
-            if any(f.endswith(ext) for ext in extensions):
-                all_source_files_map[f] = os.path.relpath(os.path.join(root, f), os.getcwd())
+    # FIXED: Load metadata map
+    map_path = os.path.join(input_folder, 'file_map.json')
+    file_map = {}
+    fallback_mode = False
+    if os.path.exists(map_path):
+        try:
+            with open(map_path, 'r', encoding='utf-8') as f:
+                file_map = json.load(f)
+            print(f"  ✓ Loaded file_map with {len(file_map)} entries")
+        except Exception as e:
+            print(f"  ⚠ Error loading file_map ({e}), using fallback mode")
+            fallback_mode = True
+    else:
+        fallback_mode = True
+        print("  ⚠ No file_map found, using fallback (may have path issues)")
 
-    source_files = sorted([os.path.join(input_folder, f) for f in os.listdir(input_folder) if f.endswith('.txt')])
+    # FIXED: source_files now includes all unique .txt (skips map.json since not .txt)
+    all_txt_files = [f for f in os.listdir(input_folder) if f.endswith('.txt')]
+    source_files = sorted([os.path.join(input_folder, f) for f in all_txt_files])
 
     if not source_files:
         print("  ✗ No .txt files found to merge")
         return False
 
-    print(f"  Found {len(source_files)} files to merge...")
+    print(f"  Found {len(source_files)} unique files to merge...")
 
     file_index = 1
     merged_count = 0
@@ -204,9 +258,7 @@ def merge_text_files(input_folder, output_folder, source_root, extensions):
         index = index_header + index_body + ('-' * 35) + "\n\n"
         final_output = index + full_content
 
-        # Determine filename
         if is_single_file_split:
-            # For splits, the name is already fully formed (e.g., MergedFile-1-1.txt)
             name = name_prefix
         else:
             name = f"{name_prefix}-{file_index}.txt"
@@ -228,21 +280,31 @@ def merge_text_files(input_folder, output_folder, source_root, extensions):
             file_index += 1
 
     for file_path in source_files:
-        original_name = get_original_filename(os.path.basename(file_path))
+        txt_filename = os.path.basename(file_path)
+        unique_key = txt_filename[:-4]  # FIXED: From unique name (e.g., 'src_app_dashboard_page.tsx')
+
+        if fallback_mode or unique_key not in file_map:
+            # FIXED: Fallback (old-style or map miss)
+            original_name = unique_key  # Or extract from unique_key if needed
+            rel_path = unique_key
+            print(f"    ⚠ Fallback for {txt_filename}")
+        else:
+            info = file_map[unique_key]
+            original_name = info['original_filename']  # FIXED: Just filename (e.g., 'page.tsx')
+            rel_path = info['rel_path']  # FIXED: Full path (e.g., 'src/app/dashboard/page.tsx')
+
         content = open(file_path, 'r', encoding='utf-8').read()
 
         # --- Large File Splitting ---
         header_est = len(f"{'=' * 100}\nFile: {original_name} (Part X of Y)\n{'=' * 100}\n\n")
-        index_est = 150 # Generous estimate for the index
+        index_est = 150
         if len(content) + header_est + index_est > max_chars:
             if buffer_files: write_buffer(output_folder, prefix)
 
             print(f"    → Splitting large file: {original_name}...")
 
-            # Determine if we should do smart splitting based on file type
-            is_code_file = any(original_name.endswith(ext) for ext in ['.py', '.js', '.ts', '.gd', '.java', '.cpp', '.c', '.cs'])
+            is_code_file = any(original_name.endswith(ext) for ext in ['.py', '.js', '.ts', '.gd', '.java', '.cpp', '.c', '.cs', '.tsx', '.jsx'])
 
-            # 1. Pre-calculate splits
             splits, temp_offset = [], 0
             while temp_offset < len(content):
                 available = max_chars - header_est - index_est
@@ -252,12 +314,13 @@ def merge_text_files(input_folder, output_folder, source_root, extensions):
                     chunk = content[temp_offset:]
                     temp_offset = len(content)
                 elif is_code_file:
-                    # Try to split at function boundaries for code files
                     pos = max(
                         content.rfind('\nfunction ', temp_offset, end),
                         content.rfind('\ndef ', temp_offset, end),
                         content.rfind('\nfunc ', temp_offset, end),
-                        content.rfind('\nclass ', temp_offset, end)
+                        content.rfind('\nclass ', temp_offset, end),
+                        content.rfind('\nexport ', temp_offset, end),  # FIXED: Added for TS/JS exports
+                        content.rfind('\nimport ', temp_offset, end)
                     )
                     if pos > temp_offset:
                         chunk = content[temp_offset:pos]
@@ -273,11 +336,9 @@ def merge_text_files(input_folder, output_folder, source_root, extensions):
             total_parts = len(splits)
             print(f"      File will be split into {total_parts} parts.")
 
-            # 2. Write splits
             for i, chunk in enumerate(splits):
                 part_num = i + 1
                 part_header = f"{'=' * 100}\nFile: {original_name} (Part {part_num} of {total_parts})\n{'=' * 100}\n\n"
-                rel_path = get_file_path(original_name, source_root, all_source_files_map)
                 path_disp = f"{rel_path} (Part {part_num}/{total_parts})"
 
                 buffer_files.append({'name': original_name, 'path': path_disp, 'content': part_header + chunk + "\n\n"})
@@ -287,11 +348,9 @@ def merge_text_files(input_folder, output_folder, source_root, extensions):
             continue
 
         # --- Regular Buffering ---
-        rel_path = get_file_path(original_name, source_root, all_source_files_map)
         file_header = f"{'=' * 100}\nFile: {original_name}\n{'=' * 100}\n\n"
         entry_content = file_header + content + "\n\n"
 
-        # Estimate future index size
         future_index = "".join([f['path'] for f in buffer_files] + [rel_path])
         if buffer_files and buffer_content_size + len(entry_content) + len(future_index) + 100 > max_chars:
             write_buffer(output_folder, prefix)
@@ -324,10 +383,8 @@ def parse_arguments():
         print("Example: python CodeTextify.py .py .js .html .css")
         return []
 
-    # Get extensions from command line arguments
     extensions = []
     for arg in sys.argv[1:]:
-        # Ensure extension starts with a dot
         if not arg.startswith('.'):
             arg = '.' + arg
         extensions.append(arg)
@@ -338,13 +395,11 @@ def main():
     """Main execution function."""
     print_header()
 
-    # Parse command line arguments
     CONFIG['file_extensions'] = parse_arguments()
     if not CONFIG['file_extensions']:
         wait_for_user("Press Enter to exit...")
         return False
 
-    # Validate configuration
     valid, source_path, txts_path, merged_path = validate_paths()
     if not valid:
         wait_for_user("Press Enter to exit...")
@@ -367,7 +422,7 @@ def main():
         return False
 
     # Step 3: Copy code files
-    print_step(3, "Copying and converting code files")
+    print_step(3, "Copying and converting code files (unique names)")
     if not copy_code_files(source_path, txts_path, CONFIG['file_extensions']):
         print("No files were copied. Check your extensions and source folder.")
         wait_for_user("Press Enter to exit...")
@@ -384,7 +439,6 @@ def main():
     print_step(5, "Opening output folder")
     open_output_folder(merged_path)
 
-    # Success message
     print("\n" + "=" * 60)
     print("           ✓ PROCESSING COMPLETED SUCCESSFULLY!")
     print("=" * 60)
