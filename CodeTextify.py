@@ -37,7 +37,11 @@ CONFIG['ignored_folders'] = {k.lower() for k in IGNORED_FOLDERS_LIST}
 
 IGNORED_FILES_LIST = [
     'package-lock.json', 'yarn.lock', 'pnpm-lock.yaml', 'Cargo.lock', 'composer.lock', 'Gemfile.lock',
+<<<<<<< HEAD
     '.env', '.env.local', 'LICENSE', 'CHANGELOG.md',
+=======
+    '.env', '.env.local', 'README.md', 'LICENSE', 'CHANGELOG.md',
+>>>>>>> fcef4d4f82182625f42327faff48bae0a6cb6860
     '.gitignore', '.gitattributes', 'tsconfig.json', 'webpack.config.js',
     'next-env.d.ts', '.eslintrc.json'  # Enhanced for Next.js configs
 ]
@@ -104,7 +108,11 @@ def walk_code_files(folder_path, extensions):
         for filename in files:
             filename_lower = filename.lower()
             if filename_lower in ignored_files_lower:
+<<<<<<< HEAD
                 print(f"  -> Skipped file: {os.path.join(root_basename_orig, filename)} (ignored file)")
+=======
+                print(f"  → Skipped file: {os.path.join(root_basename_orig, filename)} (ignored file)")
+>>>>>>> fcef4d4f82182625f42327faff48bae0a6cb6860
                 continue
             if any(filename.endswith(ext) for ext in extensions):
                 yield root, filename
@@ -137,7 +145,11 @@ def validate_paths():
         return False, None, None, None
 
     file_count = sum(1 for _ in walk_code_files(source_path, CONFIG['file_extensions']))
+<<<<<<< HEAD
     print(f"[OK] Source folder found with {file_count} matching files (after ignores)")
+=======
+    print(f"✓ Source folder found with {file_count} matching files (after ignores)")
+>>>>>>> fcef4d4f82182625f42327faff48bae0a6cb6860
 
     if file_count == 0:
         print("WARNING: No files found with the specified extensions!")
@@ -195,7 +207,11 @@ def copy_code_files(source_folder, destination_folder, extensions):
 
         # FIXED: No longer needed, but keep as safety (won't trigger)
         if 'node_modules' in rel_path.lower():
+<<<<<<< HEAD
             print(f"    [WARN] EMERGENCY: Copied from node_modules! Path: {rel_path} (skip failed?)")
+=======
+            print(f"    ⚠ EMERGENCY: Copied from node_modules! Path: {rel_path} (skip failed?)")
+>>>>>>> fcef4d4f82182625f42327faff48bae0a6cb6860
 
         try:
             shutil.copy2(source_file, dest_file)
@@ -207,7 +223,11 @@ def copy_code_files(source_folder, destination_folder, extensions):
             if copied_count % 10 == 0:
                 print(f"    Copied {copied_count} files...")
         except Exception as e:
+<<<<<<< HEAD
             print(f"    [ERROR] Error copying {filename}: {e}")
+=======
+            print(f"    ✗ Error copying {filename}: {e}")
+>>>>>>> fcef4d4f82182625f42327faff48bae0a6cb6860
             error_count += 1
 
     if file_map:
@@ -215,11 +235,19 @@ def copy_code_files(source_folder, destination_folder, extensions):
         try:
             with open(map_path, 'w', encoding='utf-8') as f:
                 json.dump(file_map, f, indent=2)
+<<<<<<< HEAD
             print(f"    [OK] Created file_map.json ({len(file_map)} entries)")
         except Exception as e:
             print(f"    [ERROR] Error saving map: {e}")
 
     print(f"  [OK] Successfully copied {copied_count} unique files")
+=======
+            print(f"    ✓ Created file_map.json ({len(file_map)} entries)")
+        except Exception as e:
+            print(f"    ✗ Error saving map: {e}")
+
+    print(f"  ✓ Successfully copied {copied_count} unique files")
+>>>>>>> fcef4d4f82182625f42327faff48bae0a6cb6860
     if error_count > 0:
         print(f"  [WARN] {error_count} files had errors")
 
@@ -235,6 +263,7 @@ def merge_text_files(input_folder, output_folder, source_root, extensions):
         try:
             with open(map_path, 'r', encoding='utf-8') as f:
                 file_map = json.load(f)
+<<<<<<< HEAD
             print(f"  [OK] Loaded file_map with {len(file_map)} entries")
         except Exception as e:
             print(f"  [WARN] Error loading file_map ({e}), using fallback mode")
@@ -242,6 +271,15 @@ def merge_text_files(input_folder, output_folder, source_root, extensions):
     else:
         fallback_mode = True
         print("  [WARN] No file_map found, using fallback (may have path issues)")
+=======
+            print(f"  ✓ Loaded file_map with {len(file_map)} entries")
+        except Exception as e:
+            print(f"  ⚠ Error loading file_map ({e}), using fallback mode")
+            fallback_mode = True
+    else:
+        fallback_mode = True
+        print("  ⚠ No file_map found, using fallback (may have path issues)")
+>>>>>>> fcef4d4f82182625f42327faff48bae0a6cb6860
 
     all_txt_files = [f for f in os.listdir(input_folder) if f.endswith('.txt')]
     source_files = sorted([os.path.join(input_folder, f) for f in all_txt_files])
@@ -305,7 +343,11 @@ def merge_text_files(input_folder, output_folder, source_root, extensions):
         if fallback_mode or unique_key not in file_map:
             original_name = unique_key
             rel_path = unique_key
+<<<<<<< HEAD
             print(f"    [WARN] Fallback for {txt_filename}")
+=======
+            print(f"    ⚠ Fallback for {txt_filename}")
+>>>>>>> fcef4d4f82182625f42327faff48bae0a6cb6860
         else:
             info = file_map[unique_key]
             original_name = info['original_filename']
@@ -313,6 +355,7 @@ def merge_text_files(input_folder, output_folder, source_root, extensions):
 
         # FIXED: Safety net (won't trigger with pruning)
         if 'node_modules' in rel_path.lower():
+<<<<<<< HEAD
             print(f"    [WARN] EMERGENCY: Merging node_modules file! Path: {rel_path} (skip failed?)")
 
         # Try to read file content with multiple encodings
@@ -343,6 +386,11 @@ def merge_text_files(input_folder, output_folder, source_root, extensions):
             except Exception as e:
                 print(f"    [ERROR] Error reading {txt_filename} as binary: {e}")
                 continue  # Skip this file
+=======
+            print(f"    ⚠ EMERGENCY: Merging node_modules file! Path: {rel_path} (skip failed?)")
+
+        content = open(file_path, 'r', encoding='utf-8').read()
+>>>>>>> fcef4d4f82182625f42327faff48bae0a6cb6860
 
         header_est = len(f"{'=' * 100}\nFile: {original_name} (Part X of Y)\n{'=' * 100}\n\n")
         index_est = 150
